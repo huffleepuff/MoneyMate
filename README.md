@@ -1,0 +1,2 @@
+# MoneyMate
+Aplikasi pencatat keuangan
