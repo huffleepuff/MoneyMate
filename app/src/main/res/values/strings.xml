@@ -1,0 +1,39 @@
+<resources>
+    <string name="app_name">MoneyMate</string>
+
+    <string-array name="metode_pembayaran_array">
+        <item>Tunai</item>
+        <item>Transfer Bank</item>
+        <item>E-Wallet</item>
+        <item>Kartu Kredit</item>
+        <item>Lainnya</item>
+    </string-array>
+
+    <string-array name="bulan_array">
+        <item>Semua Bulan</item>
+        <item>Januari</item>
+        <item>Februari</item>
+        <item>Maret</item>
+        <item>April</item>
+        <item>Mei</item>
+        <item>Juni</item>
+        <item>Juli</item>
+        <item>Agustus</item>
+        <item>September</item>
+        <item>Oktober</item>
+        <item>November</item>
+        <item>Desember</item>
+    </string-array>
+
+    <string-array name="tahun_array">
+        <item>Semua Tahun</item>
+        <item>2025</item>
+        <item>2024</item>
+        <item>2023</item>
+    </string-array>
+
+    <string-array name="tipe_transaksi_array">
+        <item>Pemasukan</item>
+        <item>Pengeluaran</item>
+    </string-array>
+</resources>
