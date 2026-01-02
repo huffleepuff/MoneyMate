@@ -8,8 +8,6 @@ import android.view.View;
 import android.widget.ArrayAdapter;
 import android.widget.Button;
 import android.widget.EditText;
-// import android.widget.RadioButton; // <-- SUDAH TIDAK DIPAKAI
-// import android.widget.RadioGroup;  // <-- SUDAH TIDAK DIPAKAI
 import android.widget.Spinner;
 import android.widget.Toast;
 
@@ -23,12 +21,11 @@ import com.example.moneymate.R;
 import com.example.moneymate.adapter.TransactionAdapter;
 import com.example.moneymate.model.Transaction;
 import com.google.android.material.floatingactionbutton.FloatingActionButton;
-// import com.google.android.material.textfield.TextInputLayout; // <-- Tidak terpakai, bisa dihapus
-import com.google.firebase.database.DataSnapshot;
-import com.google.firebase.database.DatabaseError;
-import com.google.firebase.database.DatabaseReference;
-import com.google.firebase.database.FirebaseDatabase;
-import com.google.firebase.database.ValueEventListener;
+import com.google.firebase.Timestamp;
+import com.google.firebase.auth.FirebaseAuth;
+import com.google.firebase.firestore.DocumentSnapshot;
+import com.google.firebase.firestore.FirebaseFirestore;
+import com.google.firebase.firestore.Query;
 
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
@@ -42,9 +39,11 @@ public class MainActivity extends AppCompatActivity {
     private RecyclerView recyclerView;
     private TransactionAdapter adapter;
     private List<Transaction> transactionList;
-    private DatabaseReference databaseReference;
 
-    // Variabel untuk menyimpan tanggal yang dipilih
+    private FirebaseAuth mAuth;
+    private FirebaseFirestore firestore;
+    private String uid;
+
     private final Calendar selectedDate = Calendar.getInstance();
     private long selectedTimestamp;
 
@@ -53,7 +52,16 @@ public class MainActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
 
-        databaseReference = FirebaseDatabase.getInstance().getReference("transactions");
+        mAuth = FirebaseAuth.getInstance();
+        firestore = FirebaseFirestore.getInstance();
+
+        if (mAuth.getCurrentUser() == null) {
+            finish();
+            return;
+        }
+
+        uid = mAuth.getCurrentUser().getUid();
+
         fabAdd = findViewById(R.id.fab_add);
         recyclerView = findViewById(R.id.recycler_view);
 
@@ -79,184 +87,139 @@ public class MainActivity extends AppCompatActivity {
         recyclerView.setAdapter(adapter);
     }
 
+    // 🔥 READ DATA FIRESTORE
     private void readData() {
-        databaseReference.addValueEventListener(new ValueEventListener() {
-            @Override
-            public void onDataChange(@NonNull DataSnapshot snapshot) {
-                transactionList.clear();
-                for (DataSnapshot dataSnapshot : snapshot.getChildren()) {
-                    Transaction transaction = dataSnapshot.getValue(Transaction.class);
-                    if (transaction != null) {
-                        transactionList.add(transaction);
+        firestore.collection("users")
+                .document(uid)
+                .collection("transactions")
+                .orderBy("timestamp", Query.Direction.DESCENDING)
+                .addSnapshotListener((snapshots, e) -> {
+                    if (e != null) {
+                        Toast.makeText(this, "Gagal memuat data", Toast.LENGTH_SHORT).show();
+                        return;
                     }
-                }
-                // Urutkan berdasarkan timestamp (tanggal pilihan pengguna)
-                transactionList.sort((t1, t2) -> Long.compare(t2.getTimestamp(), t1.getTimestamp()));
-                adapter.notifyDataSetChanged();
-            }
 
-            @Override
-            public void onCancelled(@NonNull DatabaseError error) {
-                Toast.makeText(MainActivity.this, "Gagal memuat data", Toast.LENGTH_SHORT).show();
-            }
-        });
+                    transactionList.clear();
+                    for (DocumentSnapshot doc : snapshots.getDocuments()) {
+                        Transaction transaction = doc.toObject(Transaction.class);
+                        if (transaction != null) {
+                            transaction.setId(doc.getId());
+                            transactionList.add(transaction);
+                        }
+                    }
+                    adapter.notifyDataSetChanged();
+                });
     }
-
-    // ==================================================================
-    // == FUNGSI DI BAWAH INI ADALAH YANG SUDAH DIPERBAIKI TOTAL ==
-    // ==================================================================
 
     private void showAddEditDialog(final Transaction transaction) {
         AlertDialog.Builder builder = new AlertDialog.Builder(this);
-        LayoutInflater inflater = getLayoutInflater();
-        View dialogView = inflater.inflate(R.layout.dialog_add_edit, null);
+        View dialogView = LayoutInflater.from(this)
+                .inflate(R.layout.dialog_add_edit, null);
         builder.setView(dialogView);
 
-        // Inisialisasi SEMUA UI Dialog
-        final EditText etTitle = dialogView.findViewById(R.id.et_title);
-        final EditText etAmount = dialogView.findViewById(R.id.et_amount);
-        // INI YANG DIPERBAIKI: Menggunakan Spinner, bukan RadioGroup
-        final Spinner spinnerTipeTransaksi = dialogView.findViewById(R.id.spinner_tipe_transaksi);
-        final EditText etTanggal = dialogView.findViewById(R.id.et_tanggal);
-        final Spinner spinnerMetode = dialogView.findViewById(R.id.spinner_metode);
-        final EditText etTag = dialogView.findViewById(R.id.et_tag);
-        final EditText etCatatan = dialogView.findViewById(R.id.et_catatan);
+        EditText etTitle = dialogView.findViewById(R.id.et_title);
+        EditText etAmount = dialogView.findViewById(R.id.et_amount);
+        Spinner spinnerTipe = dialogView.findViewById(R.id.spinner_tipe_transaksi);
+        EditText etTanggal = dialogView.findViewById(R.id.et_tanggal);
+        Spinner spinnerMetode = dialogView.findViewById(R.id.spinner_metode);
+        EditText etTag = dialogView.findViewById(R.id.et_tag);
+        EditText etCatatan = dialogView.findViewById(R.id.et_catatan);
         Button btnSave = dialogView.findViewById(R.id.btn_save);
 
-        // Setup Spinner Tipe Transaksi (Pemasukan/Pengeluaran)
-        ArrayAdapter<CharSequence> tipeAdapter = ArrayAdapter.createFromResource(this,
-                R.array.tipe_transaksi_array, android.R.layout.simple_spinner_item);
-        tipeAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
-        spinnerTipeTransaksi.setAdapter(tipeAdapter);
+        spinnerTipe.setAdapter(ArrayAdapter.createFromResource(
+                this, R.array.tipe_transaksi_array,
+                android.R.layout.simple_spinner_item));
 
-        // Setup Spinner Metode Pembayaran
-        ArrayAdapter<CharSequence> metodeAdapter = ArrayAdapter.createFromResource(this,
-                R.array.metode_pembayaran_array, android.R.layout.simple_spinner_item);
-        metodeAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
-        spinnerMetode.setAdapter(metodeAdapter);
+        spinnerMetode.setAdapter(ArrayAdapter.createFromResource(
+                this, R.array.metode_pembayaran_array,
+                android.R.layout.simple_spinner_item));
 
-        // Setup Date Picker
-        final DatePickerDialog.OnDateSetListener dateSetListener = (view, year, month, dayOfMonth) -> {
-            selectedDate.set(Calendar.YEAR, year);
-            selectedDate.set(Calendar.MONTH, month);
-            selectedDate.set(Calendar.DAY_OF_MONTH, dayOfMonth);
-            updateTanggalLabel(etTanggal);
-        };
-
-        etTanggal.setOnClickListener(v -> new DatePickerDialog(MainActivity.this, dateSetListener,
-                selectedDate.get(Calendar.YEAR), selectedDate.get(Calendar.MONTH),
-                selectedDate.get(Calendar.DAY_OF_MONTH)).show());
-
-
-        final AlertDialog dialog = builder.create();
+        etTanggal.setOnClickListener(v -> new DatePickerDialog(
+                this,
+                (view, y, m, d) -> {
+                    selectedDate.set(y, m, d);
+                    updateTanggalLabel(etTanggal);
+                },
+                selectedDate.get(Calendar.YEAR),
+                selectedDate.get(Calendar.MONTH),
+                selectedDate.get(Calendar.DAY_OF_MONTH)
+        ).show());
 
         if (transaction != null) {
-            // MODE EDIT - Isi data yang ada
-            builder.setTitle("Edit Transaksi");
             etTitle.setText(transaction.getTitle());
             etAmount.setText(String.valueOf(Math.abs(transaction.getAmount())));
             etTag.setText(transaction.getTag());
             etCatatan.setText(transaction.getCatatan());
-
-            // INI YANG DIPERBAIKI: Mengatur Spinner Tipe, bukan RadioButton
-            int tipeSpinnerPosition = tipeAdapter.getPosition(transaction.getType());
-            spinnerTipeTransaksi.setSelection(tipeSpinnerPosition);
-
-            // Atur Tanggal
-            selectedTimestamp = transaction.getTimestamp();
-            selectedDate.setTimeInMillis(selectedTimestamp);
-            updateTanggalLabel(etTanggal);
-
-            // Atur Spinner Metode Pembayaran
-            int metodeSpinnerPosition = metodeAdapter.getPosition(transaction.getMetodeBayar());
-            spinnerMetode.setSelection(metodeSpinnerPosition);
-
+            selectedDate.setTimeInMillis(transaction.getTimestamp());
         } else {
-            // MODE TAMBAH BARU - Atur default
-            builder.setTitle("Tambah Transaksi");
-            // Set tanggal hari ini sebagai default
-            selectedTimestamp = System.currentTimeMillis();
-            selectedDate.setTimeInMillis(selectedTimestamp);
-            updateTanggalLabel(etTanggal);
+            selectedDate.setTimeInMillis(System.currentTimeMillis());
         }
 
-        btnSave.setOnClickListener(v -> {
-            // Ambil semua data dari input
-            String title = etTitle.getText().toString().trim();
-            String amountStr = etAmount.getText().toString().trim();
-            String tag = etTag.getText().toString().trim();
-            String catatan = etCatatan.getText().toString().trim();
-            String metodeBayar = spinnerMetode.getSelectedItem().toString();
+        updateTanggalLabel(etTanggal);
 
-            // INI YANG DIPERBAIKI: Validasi menggunakan Spinner Tipe
+        AlertDialog dialog = builder.create();
+
+        btnSave.setOnClickListener(v -> {
+            String title = etTitle.getText().toString();
+            String amountStr = etAmount.getText().toString();
+
             if (TextUtils.isEmpty(title) || TextUtils.isEmpty(amountStr)) {
-                Toast.makeText(this, "Judul dan Jumlah harus diisi", Toast.LENGTH_SHORT).show();
+                Toast.makeText(this, "Judul dan jumlah wajib diisi", Toast.LENGTH_SHORT).show();
                 return;
             }
 
-            // INI YANG DIPERBAIKI: Mengambil data 'type' dari Spinner
-            String type = spinnerTipeTransaksi.getSelectedItem().toString(); // "Pemasukan" atau "Pengeluaran"
-
             double amount = Double.parseDouble(amountStr);
-            double finalAmount = (type.equals("Pengeluaran")) ? -Math.abs(amount) : Math.abs(amount);
+            String type = spinnerTipe.getSelectedItem().toString();
+            double finalAmount = type.equals("Pengeluaran") ? -amount : amount;
 
-            // Dapatkan timestamp yang dipilih (sudah di-set oleh DatePicker)
-            long finalTimestamp = selectedDate.getTimeInMillis();
+            Transaction newTransaction = new Transaction(
+                    transaction == null ? null : transaction.getId(),
+                    title,
+                    finalAmount,
+                    selectedDate.getTimeInMillis(),
+                    type,
+                    etCatatan.getText().toString(),
+                    spinnerMetode.getSelectedItem().toString(),
+                    etTag.getText().toString()
+            );
 
-            if (transaction != null) {
-                // UPDATE
-                updateTransaction(transaction.getId(), title, finalAmount, finalTimestamp, type, catatan, metodeBayar, tag);
+            if (transaction == null) {
+                addTransaction(newTransaction);
             } else {
-                // CREATE
-                addTransaction(title, finalAmount, finalTimestamp, type, catatan, metodeBayar, tag);
+                updateTransaction(newTransaction);
             }
+
             dialog.dismiss();
         });
 
         dialog.show();
     }
 
-    // Fungsi helper untuk update label tanggal
-    private void updateTanggalLabel(EditText etTanggal) {
-        String format = "dd-MM-yyyy";
-        SimpleDateFormat sdf = new SimpleDateFormat(format, Locale.getDefault());
-        etTanggal.setText(sdf.format(selectedDate.getTime()));
-        selectedTimestamp = selectedDate.getTimeInMillis();
+    private void addTransaction(Transaction t) {
+        firestore.collection("users")
+                .document(uid)
+                .collection("transactions")
+                .add(t);
     }
 
-    // Fungsi ini sudah benar (8 parameter)
-    private void addTransaction(String title, double amount, long timestamp, String type,
-                                String catatan, String metodeBayar, String tag) {
-        String id = databaseReference.push().getKey();
-
-        // Panggil constructor baru (8 parameter)
-        Transaction transaction = new Transaction(id, title, amount, timestamp, type, catatan, metodeBayar, tag);
-
-        if (id != null) {
-            databaseReference.child(id).setValue(transaction)
-                    .addOnSuccessListener(aVoid -> Toast.makeText(this, "Transaksi ditambahkan", Toast.LENGTH_SHORT).show())
-                    .addOnFailureListener(e -> Toast.makeText(this, "Gagal menambahkan", Toast.LENGTH_SHORT).show());
-        }
+    private void updateTransaction(Transaction t) {
+        firestore.collection("users")
+                .document(uid)
+                .collection("transactions")
+                .document(t.getId())
+                .set(t);
     }
 
-    // Fungsi ini sudah benar (8 parameter)
-    private void updateTransaction(String id, String title, double amount, long timestamp, String type,
-                                   String catatan, String metodeBayar, String tag) {
-        DatabaseReference transactionRef = databaseReference.child(id);
-
-        // Buat objek baru untuk update (atau update per child)
-        Transaction updatedTransaction = new Transaction(id, title, amount, timestamp, type, catatan, metodeBayar, tag);
-
-        // Set value akan menimpa seluruh data di node 'id'
-        transactionRef.setValue(updatedTransaction)
-                .addOnSuccessListener(aVoid -> Toast.makeText(this, "Transaksi diperbarui", Toast.LENGTH_SHORT).show())
-                .addOnFailureListener(e -> Toast.makeText(this, "Gagal memperbarui", Toast.LENGTH_SHORT).show());
-    }
-
-    // Fungsi ini sudah benar
     private void deleteTransaction(String id) {
-        databaseReference.child(id).removeValue()
-                .addOnSuccessListener(aVoid -> Toast.makeText(this, "Transaksi dihapus", Toast.LENGTH_SHORT).show())
-                .addOnFailureListener(e -> Toast.makeText(this, "Gagal menghapus", Toast.LENGTH_SHORT).show());
+        firestore.collection("users")
+                .document(uid)
+                .collection("transactions")
+                .document(id)
+                .delete();
+    }
+
+    private void updateTanggalLabel(EditText etTanggal) {
+        SimpleDateFormat sdf = new SimpleDateFormat("dd-MM-yyyy", Locale.getDefault());
+        etTanggal.setText(sdf.format(selectedDate.getTime()));
     }
 }

@@ -1,26 +1,34 @@
 <?xml version="1.0" encoding="utf-8"?>
-<resources xmlns:tools="http://schemas.android.com/tools">
+<resources>
 
-    <style name="Theme.MoneyMate" parent="Theme.MaterialComponents.DayNight.NoActionBar">
+    <style name="Theme.MoneyMate" parent="Theme.Material3.DayNight.NoActionBar">
 
+        <!-- Primary -->
         <item name="colorPrimary">@color/md_theme_dark_primary</item>
-        <item name="colorPrimaryVariant">@color/md_theme_dark_primaryContainer</item>
         <item name="colorOnPrimary">@color/md_theme_dark_onPrimary</item>
+        <item name="colorPrimaryContainer">@color/md_theme_dark_primaryContainer</item>
+        <item name="colorOnPrimaryContainer">@color/md_theme_dark_onPrimaryContainer</item>
+
+        <!-- Secondary -->
         <item name="colorSecondary">@color/md_theme_dark_secondary</item>
         <item name="colorOnSecondary">@color/md_theme_dark_onSecondary</item>
+        <item name="colorSecondaryContainer">@color/md_theme_dark_secondaryContainer</item>
+        <item name="colorOnSecondaryContainer">@color/md_theme_dark_onSecondaryContainer</item>
 
+        <!-- Background & Surface (INI JUGA FIX) -->
         <item name="android:colorBackground">@color/md_theme_dark_background</item>
-        <item name="colorSurface">@color/md_theme_dark_surface</item>
         <item name="colorOnBackground">@color/md_theme_dark_onBackground</item>
+        <item name="colorSurface">@color/md_theme_dark_surface</item>
         <item name="colorOnSurface">@color/md_theme_dark_onSurface</item>
+
+        <!-- Error -->
         <item name="colorError">@color/md_theme_dark_error</item>
         <item name="colorOnError">@color/md_theme_dark_onError</item>
 
-        <item name="materialButtonStyle">@style/Widget.MaterialComponents.Button</item>
-        <item name="textInputStyle">@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox</item>
-        <item name="radioButtonStyle">@style/Widget.MaterialComponents.CompoundButton.RadioButton</item>
-
-        <item name="android:statusBarColor">@color/md_theme_dark_background</item>
+        <!-- Status bar -->
+        <item name="android:statusBarColor">@color/md_theme_dark_surface</item>
         <item name="android:windowLightStatusBar">false</item>
+
     </style>
+
 </resources>
